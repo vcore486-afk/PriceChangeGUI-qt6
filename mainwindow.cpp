@@ -1,7 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QDoubleValidator>
+#include <QRegularExpressionValidator>
+#include <QLocale>
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
@@ -9,16 +10,21 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    auto *validator = new QDoubleValidator(0, 1e15, 6, this);
-    validator->setNotation(QDoubleValidator::StandardNotation);
+    // --- Разрешаем цифры + , или . + до 6 знаков
+    QRegularExpression re(R"(^\d*([.,]\d{0,6})?$)");
+    auto *validator = new QRegularExpressionValidator(re, this);
 
     ui->oldPriceEdit->setValidator(validator);
     ui->newPriceEdit->setValidator(validator);
 
-    ui->resultLabel->setStyleSheet("font-size: 16px;");
+    // --- Локаль с запятой в UI (по желанию)
+    ui->oldPriceEdit->setLocale(QLocale::Russian);
+    ui->newPriceEdit->setLocale(QLocale::Russian);
 
     connect(ui->calcButton, &QPushButton::clicked,
             this, &MainWindow::calculate);
+
+    ui->resultLabel->setStyleSheet("font-size: 16px;");
 }
 
 MainWindow::~MainWindow()
@@ -28,7 +34,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::calculate()
 {
-    // --- как в bash: разрешаем , и .
+    // --- Нормализация ТОЛЬКО для логики
     QString oldText = ui->oldPriceEdit->text().replace(',', '.');
     QString newText = ui->newPriceEdit->text().replace(',', '.');
 
@@ -36,38 +42,27 @@ void MainWindow::calculate()
     double oldPrice = oldText.toDouble(&okOld);
     double newPrice = newText.toDouble(&okNew);
 
-    // --- Проверка чисел
     if (!okOld || !okNew || oldPrice < 0 || newPrice < 0) {
-        ui->resultLabel->setText("Ошибка: передавай только положительные числа!");
+        ui->resultLabel->setText("Ошибка: введите корректные числа");
         ui->resultLabel->setStyleSheet("color: red;");
         return;
     }
 
-    // --- old == 0 → +∞ %
     if (oldPrice == 0.0) {
-        ui->resultLabel->setText("▲ Изменение : +∞ %");
+        ui->resultLabel->setText("▲ Изменение: +∞ %");
         ui->resultLabel->setStyleSheet("color: green; font-size: 18px;");
         return;
     }
 
-    // --- Формула как в bash
     double change = (newPrice - oldPrice) * 100.0 / oldPrice;
     QString changeStr = QString::number(change, 'f', 2);
 
-    QString sign, arrow, color;
-
-    if (change >= 0) {
-        sign  = "+";
-        arrow = "▲";
-        color = "green";
-    } else {
-        sign  = "";
-        arrow = "▼";
-        color = "red";
-    }
+    QString arrow = (change >= 0) ? "▲" : "▼";
+    QString sign  = (change >= 0) ? "+" : "";
+    QString color = (change >= 0) ? "green" : "red";
 
     ui->resultLabel->setText(
-        QString("%1 Изменение : %2%3%")
+        QString("%1 Изменение: %2%3%")
             .arg(arrow)
             .arg(sign)
             .arg(changeStr)

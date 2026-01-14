@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
 #include <QWidget>
 
@@ -20,3 +21,5 @@ private slots:
 private:
     Ui::MainWindow *ui;
 };
+
+#endif // MAINWINDOW_H
